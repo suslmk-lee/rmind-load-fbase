@@ -6,23 +6,22 @@ import (
 	"log"
 	"rmind-load-fbase/common"
 	"rmind-load-fbase/s3"
-	"time"
+	"sync"
 
 	firebase "firebase.google.com/go"
 	"google.golang.org/api/option"
 )
 
 var (
-	bucketName        string
-	firestoreCreds    string
-	objectKey         string
-	lastProcessedTime time.Time
+	bucketName     string
+	firestoreCreds string
+	objectPrefix   string // S3 버킷의 객체 접두사
 )
 
 func init() {
 	bucketName = common.ConfInfo["nhn.storage.bucket.name"]
 	firestoreCreds = common.ConfInfo["firestore.cred.file"]
-	objectKey = common.ConfInfo["firestore.object.key"]
+	objectPrefix = common.ConfInfo["firestore.object.prefix"] // S3 객체의 경로
 }
 
 func main() {
@@ -32,10 +31,10 @@ func main() {
 		log.Fatalf("Failed to create AWS session: %v", err)
 	}
 
-	// S3에서 CloudEvent 형식의 데이터 읽기
-	cloudEvent, err := s3.ReadCloudEventFromS3(sess, bucketName, objectKey)
+	// S3 버킷에서 객체 목록 가져오기
+	objectKeys, err := s3.ListObjectsInBucket(sess, bucketName, objectPrefix)
 	if err != nil {
-		log.Fatalf("Failed to read CloudEvent from S3: %v", err)
+		log.Fatalf("Failed to list objects in S3 bucket: %v", err)
 	}
 
 	// Firebase Firestore 초기화
@@ -51,21 +50,43 @@ func main() {
 	}
 	defer client.Close()
 
-	// Firestore에 데이터 저장
-	data := map[string]interface{}{
-		"specversion":     cloudEvent.SpecVersion,
-		"id":              cloudEvent.ID,
-		"source":          cloudEvent.Source,
-		"type":            cloudEvent.Type,
-		"datacontenttype": cloudEvent.DataContentType,
-		"time":            cloudEvent.Time,
-		"data":            cloudEvent.Data,
-		"object_key":      cloudEvent.ObjectKey,
-	}
-	_, err = client.Collection("your_collection").Doc(cloudEvent.ID).Set(ctx, data)
-	if err != nil {
-		log.Fatalf("Failed to save data to Firestore: %v", err)
+	// 병렬 처리를 위한 WaitGroup
+	var wg sync.WaitGroup
+
+	// 각 객체를 읽어와 Firestore에 저장
+	for _, objectKey := range objectKeys {
+		wg.Add(1)
+		go func(key string) {
+			defer wg.Done()
+
+			// S3에서 CloudEvent 읽기
+			cloudEvent, err := s3.ReadCloudEventFromS3(sess, bucketName, key)
+			if err != nil {
+				log.Printf("Failed to read CloudEvent from S3: %v", err)
+				return
+			}
+
+			// Firestore에 데이터 저장
+			data := map[string]interface{}{
+				"specversion":     cloudEvent.SpecVersion,
+				"id":              cloudEvent.ID,
+				"source":          cloudEvent.Source,
+				"type":            cloudEvent.Type,
+				"datacontenttype": cloudEvent.DataContentType,
+				"time":            cloudEvent.Time,
+				"data":            cloudEvent.Data,
+				"object_key":      cloudEvent.ObjectKey,
+			}
+
+			_, err = client.Collection("your_collection").Doc(cloudEvent.ID).Set(ctx, data)
+			if err != nil {
+				log.Printf("Failed to save data to Firestore: %v", err)
+			} else {
+				fmt.Printf("Data successfully saved to Firestore for object: %s\n", key)
+			}
+		}(objectKey)
 	}
 
-	fmt.Println("Data successfully saved to Firestore")
+	// 모든 고루틴이 완료될 때까지 대기
+	wg.Wait()
 }

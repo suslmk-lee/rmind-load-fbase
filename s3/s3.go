@@ -49,8 +49,8 @@ func CreateS3Session() (*session.Session, error) {
 	return sess, nil
 }
 
-// ListObjectsInS3Folder S3 폴더 내의 모든 객체를 목록화합니다.
-func ListObjectsInS3Folder(sess *session.Session, bucketName, folder string) ([]string, error) {
+// ListObjectsInBucket S3 폴더 내의 모든 객체를 목록화합니다.
+func ListObjectsInBucket(sess *session.Session, bucketName, folder string) ([]string, error) {
 	svc := s3.New(sess)
 
 	var objectKeys []string
