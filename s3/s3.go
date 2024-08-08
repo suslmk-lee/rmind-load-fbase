@@ -112,3 +112,47 @@ func ReadCloudEventFromS3(sess *session.Session, bucketName, objectKey string) (
 
 	return cloudEvent, nil
 }
+
+// MoveObject copies an object to a new location and deletes the original.
+func MoveObject(sess *session.Session, bucket, srcKey, dstKey string) error {
+	svc := s3.New(sess)
+
+	// Copy the object to the new location
+	_, err := svc.CopyObject(&s3.CopyObjectInput{
+		Bucket:     aws.String(bucket),
+		CopySource: aws.String(bucket + "/" + srcKey),
+		Key:        aws.String(dstKey),
+	})
+	if err != nil {
+		return err
+	}
+
+	// Wait until the object is copied
+	err = svc.WaitUntilObjectExists(&s3.HeadObjectInput{
+		Bucket: aws.String(bucket),
+		Key:    aws.String(dstKey),
+	})
+	if err != nil {
+		return err
+	}
+
+	// Delete the original object
+	_, err = svc.DeleteObject(&s3.DeleteObjectInput{
+		Bucket: aws.String(bucket),
+		Key:    aws.String(srcKey),
+	})
+	if err != nil {
+		return err
+	}
+
+	// Wait until the object is deleted
+	err = svc.WaitUntilObjectNotExists(&s3.HeadObjectInput{
+		Bucket: aws.String(bucket),
+		Key:    aws.String(srcKey),
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}

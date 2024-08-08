@@ -151,6 +151,14 @@ func processObjectKey(sess *session.Session, client *firestore.Client, ctx conte
 			continue
 		}
 
+		// 처리 완료된 객체를 /processed 경로로 이동
+		newKey := fmt.Sprintf("processed/%s", key)
+		err = s3.MoveObject(sess, bucketName, key, newKey)
+		if err != nil {
+			log.Printf("Failed to move object to %s: %v", newKey, err)
+			return
+		}
+
 		fmt.Printf("Data successfully saved to Firestore for object: %s\n", key)
 		break // 성공하면 루프 탈출
 	}
