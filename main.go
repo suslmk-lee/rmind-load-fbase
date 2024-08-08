@@ -173,7 +173,9 @@ func main() {
 
 	// Firebase Firestore 초기화
 	ctx := context.Background()
+	fmt.Println("Initializing Firestore...")
 	sa := option.WithCredentialsFile(firestoreCreds)
+	fmt.Println("Creating Firebase app...")
 	app, err := firebase.NewApp(ctx, nil, sa)
 	if err != nil {
 		log.Fatalf("Failed to create Firebase app: %v", err)
@@ -189,6 +191,7 @@ func main() {
 
 	// 각 객체를 읽어와 Firestore에 저장
 	for _, prefix := range objectPrefixs {
+		fmt.Printf("Processing %s...\n", prefix)
 		objectKeys, err := s3.ListObjectsInBucket(sess, bucketName, prefix)
 		if err != nil {
 			log.Printf("Failed to list objects for prefix %s: %v", prefix, err)
@@ -197,6 +200,7 @@ func main() {
 
 		for _, objectKey := range objectKeys {
 			wg.Add(1)
+			fmt.Println("Processing object: ", objectKey)
 			sem <- struct{}{}
 
 			go func(pfx, key string) {
@@ -210,4 +214,6 @@ func main() {
 
 	// 모든 고루틴이 완료될 때까지 대기
 	wg.Wait()
+
+	fmt.Println("All tasks completed. Exiting...")
 }
