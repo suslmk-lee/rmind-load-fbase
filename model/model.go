@@ -85,19 +85,27 @@ type On struct {
 }
 
 type IssueData struct {
-	Assignee       string    `json:"assignee"`
-	Author         string    `json:"author"`
-	Commentor      string    `json:"commentor"`
-	CreatedOn      time.Time `json:"created_on"`
-	Description    string    `json:"description"`
-	DoneRatio      int64     `json:"done_ratio"`
-	DueDate        time.Time `json:"due_date"`
-	EstimatedHours int64     `json:"estimated_hours"`
-	ID             int64     `json:"id"`
-	JobID          int64     `json:"job_id"`
-	Notes          string    `json:"notes"`
-	Priority       string    `json:"priority"`
-	StartDate      time.Time `json:"start_date"`
-	Status         string    `json:"status"`
+	ID             int       `json:"id"`
+	JobID          int       `json:"job_id"`
+	TrackerID      int       `json:"tracker_id"`
+	ProjectID      int       `json:"project_id"`
 	Subject        string    `json:"subject"`
+	Description    string    `json:"description"`
+	DueDate        time.Time `json:"due_date"`
+	StatusID       int       `json:"status_id"`
+	AssignedToID   int       `json:"assigned_to_id"`
+	CreatedOn      time.Time `json:"created_on"`
+	UpdatedOn      time.Time `json:"updated_on"`
+	StartDate      time.Time `json:"start_date"`
+	DoneRatio      int       `json:"done_ratio"`
+	EstimatedHours float64   `json:"estimated_hours"`
+	PriorityID     int       `json:"priority_id"`
+	AuthorID       int       `json:"author_id"`
+	CommentorID    int       `json:"commentor_id"`
+	RootID         int       `json:"root_id"`
+	Notes          string    `json:"notes"`
+	Property       string    `json:"property"`
+	PropKey        string    `json:"prop_key"`
+	OldValue       string    `json:"old_value"`
+	Value          string    `json:"value"`
 }
