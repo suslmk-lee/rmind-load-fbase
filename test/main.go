@@ -62,6 +62,20 @@ type On struct {
 }
 
 func main() {
+
+	text := "h3. This is a sample text with **bold** and h3. another h3."
+
+	// 제거하거나 대치할 패턴들
+	patterns := map[string]string{
+		"h3.": "", // "h3." 제거
+		"**":  "", // "**" 제거
+	}
+
+	// 처리된 텍스트
+	result := common.ReplaceOrRemove(text, patterns)
+
+	fmt.Println(result)
+
 	// Firebase Admin SDK 초기화
 	sa := option.WithCredentialsFile(firestoreCreds)
 	app, err := firebase.NewApp(context.Background(), nil, sa)

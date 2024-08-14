@@ -36,6 +36,18 @@ func init() {
 	//objectPrefix = common.ConfInfo["firestore.object.prefix"] // S3 객체의 경로
 }
 
+// 치환할 값들을 정의한 map
+var replacements = map[string]string{
+	"h3. ": "- ",
+	"h2. ": "- ",
+	"h1. ": "- ",
+	"h4. ": "- ",
+	"h5. ": "- ",
+	"h6. ": "- ",
+	"\r":   "",
+	"> ":   "",
+}
+
 func processMessageData(client *firestore.Client, ctx context.Context, cloudEvent model.CloudEvent) error {
 	data := model.MessageData{}
 	dataBytes, err := json.Marshal(cloudEvent.Data)
@@ -99,11 +111,18 @@ func processIssueData(client *firestore.Client, ctx context.Context, cloudEvent 
 	if err != nil {
 		log.Printf("Failed to marshal cloudEvent.Data: %v", err)
 		return err
+	} else {
+		log.Printf("Processing IssueData:: %s", cloudEvent.ObjectKey)
 	}
 	err = json.Unmarshal(dataBytes, &data)
 	if err != nil {
 		return err
 	}
+
+	data.Notes = common.ReplaceOrRemove(data.Notes, replacements)
+	data.Subject = common.ReplaceOrRemove(data.Subject, replacements)
+	data.Description = common.ReplaceOrRemove(data.Description, replacements)
+
 	firestoreData := map[string]interface{}{
 		"specversion": cloudEvent.SpecVersion,
 		"id":          cloudEvent.ID,

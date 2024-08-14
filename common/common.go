@@ -69,3 +69,10 @@ func RandomString(n int) string {
 	}
 	return string(b)
 }
+
+func ReplaceOrRemove(text string, patterns map[string]string) string {
+	for old, new := range patterns {
+		text = strings.ReplaceAll(text, old, new)
+	}
+	return text
+}
