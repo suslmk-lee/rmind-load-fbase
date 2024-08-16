@@ -109,3 +109,25 @@ type IssueData struct {
 	OldValue       string    `json:"old_value"`
 	Value          string    `json:"value"`
 }
+
+type RawIssueData struct {
+	ID             int       `json:"id"`
+	TrackerID      int       `json:"tracker_id"`
+	Subject        string    `json:"subject"`
+	Description    string    `json:"description"`
+	DueDate        time.Time `json:"due_date"`
+	StatusID       int       `json:"status_id"`
+	AssignedToID   int       `json:"assigned_to_id"`
+	PriorityID     int       `json:"priority_id"`
+	AuthorID       int       `json:"author_id"`
+	LockVersion    int       `json:"lock_version"`
+	CreatedOn      time.Time `json:"created_on"`
+	UpdatedOn      time.Time `json:"updated_on"`
+	StartDate      time.Time `json:"start_date"`
+	DoneRatio      int       `json:"done_ratio"`
+	EstimatedHours float64   `json:"estimated_hours"`
+	ParentID       int       `json:"parent_id"`
+	RootID         int       `json:"root_id"`
+	IsPrivate      int       `json:"is_private"`
+	ClosedOn       time.Time `json:"closed_on"`
+}

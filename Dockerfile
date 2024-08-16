@@ -14,8 +14,8 @@ WORKDIR /build
 # Copy the necessary files to the build directory
 COPY go.mod go.sum *.go ./
 COPY common ./common
-COPY model ./model
-COPY s3 ./s3
+COPY internal ./internal
+COPY pkg ./pkg
 COPY *.json ./
 COPY *.properties ./
 

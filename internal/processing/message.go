@@ -33,7 +33,7 @@ func ProcessMessageData(client *firestore.Client, ctx context.Context, cloudEven
 		"object_key":  cloudEvent.ObjectKey,
 	}
 
-	_, err = client.Collection("messages").Doc("message").Collection(collectionName).Doc(cloudEvent.ID).Set(ctx, firestoreData)
+	_, err = client.Collection("messages").Doc("message").Collection(collectionName).Doc(strconv.FormatInt(data.ID, 10)).Set(ctx, firestoreData)
 	if err != nil {
 		log.Printf("Failed to save data to Firestore for BoardID %d: %v", data.BoardID, err)
 		return err

@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"log"
 	"rmind-load-fbase/internal/model"
+	"rmind-load-fbase/pkg/util"
+	"strconv"
 )
 
 func ProcessUserData(client *firestore.Client, ctx context.Context, cloudEvent model.CloudEvent) error {
@@ -19,6 +21,19 @@ func ProcessUserData(client *firestore.Client, ctx context.Context, cloudEvent m
 	if err != nil {
 		return err
 	}
+
+	err = util.ChangeTime(
+		&data.CreatedOn,
+		&data.UpdatedOn,
+		&data.LastLoginOn.Time,
+		&data.PasswdChangedOn.Time,
+	)
+
+	if err != nil {
+		log.Printf("Failed to change data: %v", err)
+		return err
+	}
+
 	firestoreData := map[string]interface{}{
 		"specversion": cloudEvent.SpecVersion,
 		"id":          cloudEvent.ID,
@@ -28,6 +43,6 @@ func ProcessUserData(client *firestore.Client, ctx context.Context, cloudEvent m
 		"data":        data,
 		"object_key":  cloudEvent.ObjectKey,
 	}
-	_, err = client.Collection("users").Doc(cloudEvent.ID).Set(ctx, firestoreData)
+	_, err = client.Collection("users").Doc(strconv.FormatInt(data.ID, 10)).Set(ctx, firestoreData)
 	return err
 }

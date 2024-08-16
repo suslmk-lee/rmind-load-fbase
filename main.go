@@ -23,6 +23,7 @@ var (
 		"rmine_push_data/messages",
 		"rmine_push_data/users",
 		"rmine_push_data/issues",
+		"rmine_push_data/raw-issues",
 	} // S3 버킷의 객체 접두사
 	maxRetries    = 3
 	maxGoroutines = 5 // S3 버킷에서 객체 수 개수 제한 (3000개 이상은 제한 없음)
@@ -31,7 +32,6 @@ var (
 func init() {
 	bucketName = common.ConfInfo["nhn.storage.bucket.name"]
 	firestoreCreds = common.ConfInfo["firestore.cred.file"]
-	//objectPrefix = common.ConfInfo["firestore.object.prefix"] // S3 객체의 경로
 }
 
 func processObjectKey(sess *session.Session, client *firestore.Client, ctx context.Context, prefix string, key string) {
@@ -54,6 +54,8 @@ func processObjectKey(sess *session.Session, client *firestore.Client, ctx conte
 			processErr = processing.ProcessUserData(client, ctx, cloudEvent)
 		case "rmine_push_data/issues":
 			processErr = processing.ProcessIssueData(client, ctx, cloudEvent)
+		case "rmine_push_data/raw-issues":
+			processErr = processing.ProcessRawIssueData(client, ctx, cloudEvent)
 		default:
 			log.Printf("Unknown prefix: %s", prefix)
 			return
@@ -106,7 +108,7 @@ func main() {
 	sem := make(chan struct{}, maxGoroutines)
 	var wg sync.WaitGroup
 
-	// 각 객체를 읽어와 Firestore에 저장
+	// 각 객체를 읽어와 Firestore 에 저장
 	for _, prefix := range objectPrefixs {
 		fmt.Printf("Processing %s...\n", prefix)
 		objectKeys, err := s3.ListObjectsInBucket(sess, bucketName, prefix)
