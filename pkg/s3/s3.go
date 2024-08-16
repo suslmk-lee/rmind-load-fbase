@@ -7,7 +7,7 @@ import (
 	"log"
 	"net/http"
 	"rmind-load-fbase/common"
-	"rmind-load-fbase/model"
+	"rmind-load-fbase/internal/model"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"

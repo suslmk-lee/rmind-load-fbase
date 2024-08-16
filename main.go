@@ -3,14 +3,12 @@ package main
 import (
 	"cloud.google.com/go/firestore"
 	"context"
-	"encoding/json"
 	"fmt"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"log"
 	"rmind-load-fbase/common"
-	"rmind-load-fbase/model"
-	"rmind-load-fbase/s3"
-	"strconv"
+	"rmind-load-fbase/internal/processing"
+	"rmind-load-fbase/pkg/s3"
 	"sync"
 	"time"
 
@@ -36,140 +34,6 @@ func init() {
 	//objectPrefix = common.ConfInfo["firestore.object.prefix"] // S3 객체의 경로
 }
 
-// 치환할 값들을 정의한 map
-var replacements = map[string]string{
-	"h3. ": "- ",
-	"h2. ": "- ",
-	"h1. ": "- ",
-	"h4. ": "- ",
-	"h5. ": "- ",
-	"h6. ": "- ",
-	"\r":   "",
-	"> ":   "",
-}
-
-func processMessageData(client *firestore.Client, ctx context.Context, cloudEvent model.CloudEvent) error {
-	data := model.MessageData{}
-	dataBytes, err := json.Marshal(cloudEvent.Data)
-	if err != nil {
-		log.Printf("Failed to marshal cloudEvent.Data: %v", err)
-		return err
-	}
-	err = json.Unmarshal(dataBytes, &data)
-	if err != nil {
-		return err
-	}
-
-	collectionName := strconv.FormatInt(data.BoardID, 10)
-	firestoreData := map[string]interface{}{
-		"specversion": cloudEvent.SpecVersion,
-		"id":          cloudEvent.ID,
-		"source":      cloudEvent.Source,
-		"type":        cloudEvent.Type,
-		"time":        cloudEvent.Time,
-		"data":        data,
-		"object_key":  cloudEvent.ObjectKey,
-	}
-
-	_, err = client.Collection("messages").Doc("message").Collection(collectionName).Doc(cloudEvent.ID).Set(ctx, firestoreData)
-	if err != nil {
-		log.Printf("Failed to save data to Firestore for BoardID %d: %v", data.BoardID, err)
-		return err
-	}
-
-	fmt.Printf("Data successfully saved to Firestore for object: %s, BoardID: %d\n", cloudEvent.ObjectKey, data.BoardID)
-	return nil
-}
-
-func processUserData(client *firestore.Client, ctx context.Context, cloudEvent model.CloudEvent) error {
-	data := model.UserData{}
-	dataBytes, err := json.Marshal(cloudEvent.Data)
-	if err != nil {
-		log.Printf("Failed to marshal cloudEvent.Data: %v", err)
-		return err
-	}
-	err = json.Unmarshal(dataBytes, &data)
-	if err != nil {
-		return err
-	}
-	firestoreData := map[string]interface{}{
-		"specversion": cloudEvent.SpecVersion,
-		"id":          cloudEvent.ID,
-		"source":      cloudEvent.Source,
-		"type":        cloudEvent.Type,
-		"time":        cloudEvent.Time,
-		"data":        data,
-		"object_key":  cloudEvent.ObjectKey,
-	}
-	_, err = client.Collection("users").Doc(cloudEvent.ID).Set(ctx, firestoreData)
-	return err
-}
-
-func processIssueData(client *firestore.Client, ctx context.Context, cloudEvent model.CloudEvent) error {
-	data := model.IssueData{}
-	dataBytes, err := json.Marshal(cloudEvent.Data)
-	if err != nil {
-		log.Printf("Failed to marshal cloudEvent.Data: %v", err)
-		return err
-	} else {
-		log.Printf("Processing IssueData:: %s", cloudEvent.ObjectKey)
-	}
-	err = json.Unmarshal(dataBytes, &data)
-	if err != nil {
-		return err
-	}
-
-	err, data = changeTimeZone(data)
-	if err != nil {
-		log.Printf("Failed to change data: %v", err)
-		return err
-	}
-
-	data = changeString(data)
-
-	firestoreData := map[string]interface{}{
-		"specversion": cloudEvent.SpecVersion,
-		"id":          cloudEvent.ID,
-		"source":      cloudEvent.Source,
-		"type":        cloudEvent.Type,
-		"time":        cloudEvent.Time,
-		"data":        data,
-		"object_key":  cloudEvent.ObjectKey,
-	}
-	_, err = client.Collection("issues").Doc(cloudEvent.ID).Set(ctx, firestoreData)
-	return err
-}
-
-func changeTimeZone(data model.IssueData) (error, model.IssueData) {
-	seoulLocation, err := time.LoadLocation("Asia/Seoul")
-	if err != nil {
-		return err, data
-	}
-
-	data.DueDate = time.Date(
-		data.DueDate.Year(), data.DueDate.Month(), data.DueDate.Day(),
-		data.DueDate.Hour(), data.DueDate.Minute(), data.DueDate.Second(), data.DueDate.Nanosecond(), seoulLocation).UTC()
-	data.CreatedOn = time.Date(
-		data.CreatedOn.Year(), data.CreatedOn.Month(), data.CreatedOn.Day(),
-		data.CreatedOn.Hour(), data.CreatedOn.Minute(), data.CreatedOn.Second(), data.CreatedOn.Nanosecond(), seoulLocation).UTC()
-	data.UpdatedOn = time.Date(
-		data.UpdatedOn.Year(), data.UpdatedOn.Month(), data.UpdatedOn.Day(),
-		data.UpdatedOn.Hour(), data.UpdatedOn.Minute(), data.UpdatedOn.Second(), data.UpdatedOn.Nanosecond(), seoulLocation).UTC()
-	data.StartDate = time.Date(
-		data.StartDate.Year(), data.StartDate.Month(), data.StartDate.Day(),
-		data.StartDate.Hour(), data.StartDate.Minute(), data.StartDate.Second(), data.StartDate.Nanosecond(), seoulLocation).UTC()
-
-	return nil, data
-}
-
-func changeString(data model.IssueData) model.IssueData {
-	data.Notes = common.ReplaceOrRemove(data.Notes, replacements)
-	data.Subject = common.ReplaceOrRemove(data.Subject, replacements)
-	data.Description = common.ReplaceOrRemove(data.Description, replacements)
-
-	return data
-}
-
 func processObjectKey(sess *session.Session, client *firestore.Client, ctx context.Context, prefix string, key string) {
 	for attempt := 1; attempt <= maxRetries; attempt++ {
 		cloudEvent, err := s3.ReadCloudEventFromS3(sess, bucketName, key)
@@ -185,11 +49,11 @@ func processObjectKey(sess *session.Session, client *firestore.Client, ctx conte
 		var processErr error
 		switch prefix {
 		case "rmine_push_data/messages":
-			processErr = processMessageData(client, ctx, cloudEvent)
+			processErr = processing.ProcessMessageData(client, ctx, cloudEvent)
 		case "rmine_push_data/users":
-			processErr = processUserData(client, ctx, cloudEvent)
+			processErr = processing.ProcessUserData(client, ctx, cloudEvent)
 		case "rmine_push_data/issues":
-			processErr = processIssueData(client, ctx, cloudEvent)
+			processErr = processing.ProcessIssueData(client, ctx, cloudEvent)
 		default:
 			log.Printf("Unknown prefix: %s", prefix)
 			return
